@@ -1,0 +1,877 @@
+<script>
+(function() {
+    const STORAGE_KEY = 'mockMediaList';
+    const originalSetItem = localStorage.setItem;
+    const originalGetItem = localStorage.getItem;
+    
+    localStorage.setItem = function(key, value) {
+        if (key === STORAGE_KEY || key.includes('mockMediaList')) {
+            return originalSetItem.call(this, STORAGE_KEY, value);
+        }
+        return originalSetItem.call(this, key, value);
+    };
+    
+    localStorage.getItem = function(key) {
+        if (key === STORAGE_KEY || key.includes('mockMediaList')) {
+            return originalGetItem.call(this, STORAGE_KEY);
+        }
+        return originalGetItem.call(this, key);
+    };
+})();
+</script>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>媒体接收中心 · 全平台版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #0b0b0f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 12px;
+        }
+
+        .receiver-panel {
+            max-width: 1400px;
+            width: 100%;
+            background: #141417;
+            border-radius: 32px;
+            padding: 20px 18px 28px;
+            box-shadow: 0 25px 50px -8px rgba(0,0,0,0.8), 0 0 0 1px #2c2c30 inset;
+            margin: 10px 0;
+        }
+
+        .header-flex {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            gap: 15px;
+        }
+
+        .title-section h1 {
+            color: white;
+            font-size: clamp(20px, 6vw, 28px);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .title-section h1 span {
+            background: #ff3b30;
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 40px;
+            color: white;
+        }
+
+        .stats-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: #1f1f23;
+            padding: 8px 16px;
+            border-radius: 40px;
+            border: 1px solid #3a3a40;
+        }
+
+        .stat-item {
+            color: #0a84ff;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 22px;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1.2fr 0.8fr;
+            }
+        }
+
+        .card {
+            background: #1a1a1f;
+            border-radius: 28px;
+            padding: 20px 18px;
+            border: 1px solid #2c2c30;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header h2 {
+            color: #e5e5e7;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-live {
+            background: #0a84ff;
+            color: white;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 12px;
+        }
+
+        /* 预览区域 */
+        .preview-section {
+            background: #0f0f13;
+            border-radius: 22px;
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+
+        .preview-area {
+            aspect-ratio: 16/9;
+            background: #0a0a0c;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5a5a62;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #2c2c30;
+            min-height: 200px;
+        }
+
+        #previewImage {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .preview-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .preview-placeholder .icon {
+            font-size: 48px;
+        }
+
+        .preview-placeholder .hint {
+            font-size: 14px;
+            color: #8e8e93;
+        }
+
+        .preview-placeholder .sub-hint {
+            font-size: 12px;
+            color: #5a5a62;
+        }
+
+        .preview-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #1a1a1f;
+            border-radius: 16px;
+            border: 1px solid #2c2c30;
+        }
+
+        .preview-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #2c2c30;
+            gap: 10px;
+        }
+
+        .preview-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .preview-label {
+            color: #8e8e93;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .preview-value {
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-word;
+            text-align: right;
+        }
+
+        .action-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 18px 0;
+        }
+
+        .action-btn {
+            background: #2c2c30;
+            border: none;
+            color: #e5e5e7;
+            padding: 12px 18px;
+            border-radius: 40px;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            flex: 1 1 auto;
+            justify-content: center;
+            border: 1px solid #3a3a40;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .action-btn:active {
+            transform: scale(0.97);
+            background: #3a3a40;
+        }
+
+        .action-btn.primary {
+            background: #0a84ff;
+            color: white;
+            border: none;
+        }
+
+        .action-btn.primary:active {
+            background: #0063ce;
+        }
+
+        .action-btn.warning {
+            background: #ff9f0a;
+            color: white;
+            border: none;
+        }
+
+        .action-btn.warning:active {
+            background: #e68a00;
+        }
+
+        /* 媒体网格 - 响应式 */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 480px) {
+            .media-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+        }
+
+        .media-grid::-webkit-scrollbar {
+            width: 5px;
+        }
+        .media-grid::-webkit-scrollbar-thumb {
+            background: #3a3a40;
+            border-radius: 10px;
+        }
+
+        .media-card {
+            background: #222227;
+            border-radius: 16px;
+            padding: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .media-card:active {
+            transform: scale(0.98);
+            background: #2a2a2f;
+        }
+
+        .media-card.selected {
+            border-color: #0a84ff;
+            background: #1a1a25;
+        }
+
+        .media-thumb {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #0d0d11;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            border: 1px solid #3a3a40;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .media-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-name {
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            word-break: break-word;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .media-meta {
+            color: #8e8e93;
+            font-size: 10px;
+            margin-bottom: 8px;
+        }
+
+        .media-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            background: #0a84ff22;
+            color: #0a84ff;
+        }
+
+        .media-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.9);
+        }
+
+        .icon-btn.download {
+            background: #0a84ff;
+            color: white;
+        }
+
+        .icon-btn.download:active {
+            background: #0063ce;
+        }
+
+        .icon-btn.delete {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .icon-btn.delete:active {
+            background: #d63026;
+        }
+
+        .empty-gallery {
+            color: #5a5a62;
+            text-align: center;
+            padding: 50px 20px;
+            grid-column: 1 / -1;
+        }
+
+        .footer-tip {
+            color: #48484d;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 22px;
+            border-top: 1px solid #2c2c30;
+            padding-top: 18px;
+        }
+
+        .log-area {
+            background: #0f0f13;
+            border-radius: 16px;
+            padding: 12px;
+            color: #8e8e93;
+            font-size: 13px;
+            margin-top: 16px;
+            word-break: break-word;
+        }
+
+        .waiting-animation {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #0a84ff;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .device-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            background: #2c2c30;
+            color: #8e8e93;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="receiver-panel">
+        <div class="header-flex">
+            <div class="title-section">
+                <h1>
+                    📡 媒体接收中心
+                    <span>全平台</span>
+                </h1>
+                <p>支持手机/电脑 · 自动接收照片</p>
+            </div>
+            <div class="stats-group">
+                <div class="stat-item"><span>📸</span> 照片 <span id="photoCount">0</span></div>
+                <div class="stat-item"><span>📦</span> 总数 <span id="totalCount">0</span></div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- 左侧：预览区 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>🔍 照片预览</h2>
+                    <span class="badge-live" id="previewStatus">
+                        等待数据
+                        <span class="waiting-animation"></span>
+                    </span>
+                </div>
+                
+                <div class="preview-section">
+                    <div class="preview-area" id="previewArea">
+                        <img id="previewImage" src="" alt="preview" onerror="this.style.display='none';document.getElementById('previewPlaceholder').style.display='flex'">
+                        <div class="preview-placeholder" id="previewPlaceholder">
+                            <div class="icon">📸</div>
+                            <div class="hint">点击下方照片预览</div>
+                            <div class="sub-hint" id="deviceHint"></div>
+                        </div>
+                    </div>
+
+                    <div class="preview-info" id="previewInfo" style="display: none;">
+                        <div class="preview-info-row">
+                            <span class="preview-label">文件名</span>
+                            <span class="preview-value" id="previewFileName">-</span>
+                        </div>
+                        <div class="preview-info-row">
+                            <span class="preview-label">大小</span>
+                            <span class="preview-value" id="previewFileSize">-</span>
+                        </div>
+                        <div class="preview-info-row">
+                            <span class="preview-label">分辨率</span>
+                            <span class="preview-value" id="previewResolution">-</span>
+                        </div>
+                        <div class="preview-info-row">
+                            <span class="preview-label">时间</span>
+                            <span class="preview-value" id="previewFileTime">-</span>
+                        </div>
+                        <div class="preview-info-row">
+                            <span class="preview-label">来源</span>
+                            <span class="preview-value" id="previewSource">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="action-btn primary" id="refreshBtn">
+                        <span>🔄</span> 刷新
+                    </button>
+                    <button class="action-btn warning" id="clearAllBtn">
+                        <span>🗑️</span> 清空
+                    </button>
+                </div>
+
+                <div class="log-area" id="logMessage">
+                    ⚡ 就绪，等待前端拍照...
+                </div>
+            </div>
+
+            <!-- 右侧：照片列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📸 收到的照片</h2>
+                </div>
+
+                <div class="media-grid" id="mediaGrid">
+                    <div class="empty-gallery">暂无照片，请在前端拍照</div>
+                </div>
+
+                <div style="margin-top: 16px; color:#48484d; font-size:12px; text-align: center;">
+                    ⚡ 点击照片预览 · 点击⬇️下载原图
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-tip">
+            🔗 实时同步 · 照片自动优化 · 支持所有设备
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // DOM 元素
+            const previewImage = document.getElementById('previewImage');
+            const previewPlaceholder = document.getElementById('previewPlaceholder');
+            const previewInfo = document.getElementById('previewInfo');
+            const previewFileName = document.getElementById('previewFileName');
+            const previewFileSize = document.getElementById('previewFileSize');
+            const previewResolution = document.getElementById('previewResolution');
+            const previewFileTime = document.getElementById('previewFileTime');
+            const previewSource = document.getElementById('previewSource');
+            const previewStatus = document.getElementById('previewStatus');
+            const deviceHint = document.getElementById('deviceHint');
+            
+            const mediaGrid = document.getElementById('mediaGrid');
+            const photoCountSpan = document.getElementById('photoCount');
+            const totalCountSpan = document.getElementById('totalCount');
+            const logMessage = document.getElementById('logMessage');
+            
+            const refreshBtn = document.getElementById('refreshBtn');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+
+            let mediaItems = [];
+            let currentPreviewId = null;
+            let lastUpdateTime = Date.now();
+
+            // 检测设备类型
+            const ua = navigator.userAgent;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+            const isIOS = /iPhone|iPad|iPod/i.test(ua);
+            const isAndroid = /Android/i.test(ua);
+            
+            let deviceText = '💻 电脑';
+            if (isIOS) deviceText = '📱 iOS';
+            else if (isAndroid) deviceText = '📱 安卓';
+            else if (isMobile) deviceText = '📱 手机';
+            
+            deviceHint.innerHTML = `${deviceText} · 点击照片预览`;
+
+            // 日志
+            function setLog(msg, isNew = false) {
+                const time = new Date().toLocaleTimeString();
+                logMessage.innerHTML = `⚡ ${msg} ${time}`;
+                if (isNew) {
+                    logMessage.style.background = '#1a1a25';
+                    setTimeout(() => logMessage.style.background = '#0f0f13', 500);
+                    
+                    // 移动端震动反馈（仅支持时）
+                    if (isMobile && window.navigator && window.navigator.vibrate) {
+                        window.navigator.vibrate(30);
+                    }
+                }
+                console.log('接收端:', msg);
+            }
+
+            // 从localStorage读取前端发来的数据
+            function loadFromStorage() {
+                try {
+                    const stored = localStorage.getItem('mockMediaList');
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed)) {
+                            const oldCount = mediaItems.length;
+                            
+                            // 只保留照片，并确保数据格式正确
+                            mediaItems = parsed
+                                .filter(item => item && item.type === 'photo')
+                                .map(item => ({
+                                    ...item,
+                                    id: item.id || 'unknown_' + Date.now(),
+                                    name: item.name || '照片.jpg',
+                                    size: item.size || '未知',
+                                    timestamp: item.timestamp || Date.now(),
+                                    dataUrl: item.dataUrl || '',
+                                    width: item.width || 320,
+                                    height: item.height || 240,
+                                    from: item.from || '前端'
+                                }));
+                            
+                            // 按时间戳排序
+                            mediaItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                            
+                            updateUI();
+                            
+                            if (mediaItems.length > oldCount) {
+                                lastUpdateTime = Date.now();
+                                setLog(`📥 收到新照片，共 ${mediaItems.length} 张`, true);
+                                
+                                // 自动预览最新照片
+                                if (mediaItems.length > 0) {
+                                    previewItem(mediaItems[0]);
+                                }
+                            }
+                        }
+                    } else {
+                        mediaItems = [];
+                        updateUI();
+                    }
+                } catch (e) {
+                    console.error('读取失败', e);
+                    mediaItems = [];
+                    updateUI();
+                }
+            }
+
+            // 更新界面
+            function updateUI() {
+                // 更新统计
+                const photoCount = mediaItems.length;
+                photoCountSpan.innerText = photoCount;
+                totalCountSpan.innerText = photoCount;
+
+                // 更新预览状态文字
+                if (mediaItems.length > 0) {
+                    previewStatus.innerHTML = `${photoCount} 张照片`;
+                } else {
+                    previewStatus.innerHTML = `等待数据 <span class="waiting-animation"></span>`;
+                }
+
+                renderCards(mediaItems);
+            }
+
+            // 渲染卡片
+            function renderCards(items) {
+                if (items.length === 0) {
+                    mediaGrid.innerHTML = `<div class="empty-gallery">暂无照片，请在前端拍照</div>`;
+                    return;
+                }
+
+                let html = '';
+                items.forEach(item => {
+                    const date = item.timestamp ? new Date(item.timestamp).toLocaleString('zh-CN', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : '未知时间';
+                    
+                    const isSelected = item.id === currentPreviewId;
+                    const resolution = item.width && item.height ? `${item.width}×${item.height}` : '320×240';
+                    
+                    html += `
+                        <div class="media-card ${isSelected ? 'selected' : ''}" data-id="${item.id}">
+                            <div class="media-thumb">
+                                <img src="${item.dataUrl}" alt="thumbnail" loading="lazy" 
+                                     onerror="this.style.display='none';this.parentNode.innerHTML='📸'">
+                            </div>
+                            <div class="media-name" title="${item.name}">${item.name}</div>
+                            <div class="media-meta">${item.size} · ${resolution}</div>
+                            <div class="media-actions">
+                                <button class="icon-btn download" onclick="window.downloadItem('${item.id}')" title="下载照片">⬇️</button>
+                                <button class="icon-btn delete" onclick="window.deleteItem('${item.id}')" title="删除照片">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                mediaGrid.innerHTML = html;
+
+                // 添加点击预览事件
+                document.querySelectorAll('.media-card').forEach(card => {
+                    card.addEventListener('click', (e) => {
+                        if (e.target.closest('.icon-btn')) return;
+                        const id = card.dataset.id;
+                        const item = mediaItems.find(i => i.id === id);
+                        if (item) {
+                            previewItem(item);
+                            
+                            // 移动端震动反馈
+                            if (isMobile && window.navigator && window.navigator.vibrate) {
+                                window.navigator.vibrate(20);
+                            }
+                        }
+                    });
+                });
+            }
+
+            // 预览照片
+            function previewItem(item) {
+                if (!item) return;
+                
+                currentPreviewId = item.id;
+                
+                // 更新预览信息
+                previewFileName.textContent = item.name || '照片';
+                previewFileSize.textContent = item.size || '未知';
+                previewResolution.textContent = (item.width && item.height) ? `${item.width}×${item.height}` : '320×240';
+                previewFileTime.textContent = item.timestamp ? new Date(item.timestamp).toLocaleString('zh-CN') : '未知';
+                previewSource.textContent = item.from || '前端';
+                
+                // 显示图片
+                previewImage.src = item.dataUrl;
+                previewImage.style.display = 'block';
+                previewPlaceholder.style.display = 'none';
+                previewInfo.style.display = 'block';
+                
+                // 更新选中状态
+                document.querySelectorAll('.media-card').forEach(card => {
+                    card.classList.toggle('selected', card.dataset.id === item.id);
+                });
+                
+                setLog(`预览: ${item.name}`);
+            }
+
+            // 全局函数供按钮调用
+            window.downloadItem = function(id) {
+                const item = mediaItems.find(i => i.id === id);
+                if (!item || !item.dataUrl) return;
+                
+                setLog(`⏳ 准备下载: ${item.name}`);
+                
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.href = item.dataUrl;
+                link.download = item.name || 'photo.jpg';
+                
+                // iOS需要特殊处理
+                if (isIOS) {
+                    // iOS上直接打开图片
+                    window.open(item.dataUrl, '_blank');
+                } else {
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+                
+                setLog(`✅ 已下载: ${item.name} (${item.size})`);
+                
+                // 移动端震动反馈
+                if (isMobile && window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate([50, 30, 50]);
+                }
+            };
+
+            window.deleteItem = function(id) {
+                if (!confirm('确定删除这张照片吗？')) return;
+                
+                mediaItems = mediaItems.filter(item => item.id !== id);
+                if (currentPreviewId === id) {
+                    currentPreviewId = null;
+                    previewImage.style.display = 'none';
+                    previewPlaceholder.style.display = 'flex';
+                    previewInfo.style.display = 'none';
+                }
+                // 更新localStorage
+                localStorage.setItem('mockMediaList', JSON.stringify(mediaItems));
+                updateUI();
+                setLog('已删除一张照片');
+            };
+
+            // 清空全部
+            function clearAll() {
+                if (confirm('确定清空所有照片吗？')) {
+                    mediaItems = [];
+                    currentPreviewId = null;
+                    previewImage.style.display = 'none';
+                    previewPlaceholder.style.display = 'flex';
+                    previewInfo.style.display = 'none';
+                    previewStatus.innerHTML = `等待数据 <span class="waiting-animation"></span>`;
+                    localStorage.removeItem('mockMediaList');
+                    updateUI();
+                    setLog('已清空所有照片');
+                }
+            }
+
+            // 监听storage事件
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'mockMediaList') {
+                    console.log('检测到新数据', e);
+                    loadFromStorage();
+                }
+            });
+
+            // 手动刷新
+            refreshBtn.addEventListener('click', () => {
+                loadFromStorage();
+                setLog('已手动刷新');
+            });
+
+            clearAllBtn.addEventListener('click', clearAll);
+
+            // 初始化
+            loadFromStorage();
+            
+            // 每2秒检查一次（兼容某些浏览器）
+            setInterval(loadFromStorage, 2000);
+
+            // 显示启动信息
+            setLog(`就绪 · ${deviceText}模式`);
+
+            // 检查localStorage是否可用
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+            } catch (e) {
+                setLog('❌ localStorage不可用，请检查浏览器设置', true);
+            }
+        })();
+    </script>
+</body>
+</html>
